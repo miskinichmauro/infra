@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: seq-pvc
+  namespace: {{ .Values.namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.storageClass }}
+  storageClassName: {{ .Values.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.seq.storage }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seq
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seq
+  template:
+    metadata:
+      labels:
+        app: seq
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: seq
+          image: {{ .Values.seq.image }}
+          env:
+            - name: ACCEPT_EULA
+              value: "Y"
+            - name: SEQ_FIRSTRUN_ADMINPASSWORDHASH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: SEQ_ADMIN_PASSWORD_HASH
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: {{ .Values.seq.resources.requests.cpu | quote }}
+              memory: {{ .Values.seq.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.seq.resources.limits.cpu | quote }}
+              memory: {{ .Values.seq.resources.limits.memory | quote }}
+          volumeMounts:
+            - name: seq-data
+              mountPath: /data
+      volumes:
+        - name: seq-data
+          persistentVolumeClaim:
+            claimName: seq-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: seq
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: seq
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.ingress.name }}-seq
+  namespace: {{ .Values.namespace }}
+  {{- if .Values.ingress.tls }}
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.seqHost }}
+      secretName: seq-tls
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.seqHost }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: seq
+                port:
+                  number: 80

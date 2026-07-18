@@ -1,0 +1,7 @@
+name = "glutenfreepy-maintenance"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+routes = [
+  { pattern = "glutenfreepy.com/*", zone_name = "glutenfreepy.com" }
+]

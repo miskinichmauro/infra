@@ -1,0 +1,35 @@
+name: Deploy Cloudflare Tunnel
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'k8s/cloudflare/**'
+
+jobs:
+  deploy-cloudflare:
+    name: Deploy to Production
+    runs-on: [self-hosted, linux, mfmserver]
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Crear namespace
+        run: |
+          kubectl create namespace cloudflare --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Aplicar secret de credenciales
+        run: |
+          echo '${{ secrets.CLOUDFLARE_TUNNEL_CREDENTIALS }}' | base64 -d > /tmp/credentials.json
+          kubectl create secret generic cloudflared-credentials \
+            --from-file=credentials.json=/tmp/credentials.json \
+            --namespace cloudflare \
+            --dry-run=client -o yaml | kubectl apply -f -
+          rm /tmp/credentials.json
+
+      - name: Deploy cloudflared
+        run: |
+          kubectl apply -f k8s/cloudflare/cloudflared.yaml

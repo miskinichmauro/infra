@@ -1,0 +1,94 @@
+# Cloudflare Tunnel para exponer los servicios sin abrir puertos en el router.
+#
+# Pasos previos (una sola vez):
+#   1. Instalar cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+#   2. Autenticar: cloudflared tunnel login
+#   3. Crear el túnel: cloudflared tunnel create ecommerce-gluten-free
+#   4. Copiar el TUNNEL_ID del output y reemplazarlo abajo
+#   5. Crear el Secret con las credenciales:
+#        kubectl create namespace cloudflare
+#        kubectl create secret generic cloudflared-credentials \
+#          --from-file=credentials.json=~/.cloudflared/<TUNNEL_ID>.json \
+#          --namespace cloudflare
+#   6. Configurar DNS en Cloudflare Dashboard:
+#        glutenfreepy.com      → CNAME → <TUNNEL_ID>.cfargotunnel.com
+#        api.glutenfreepy.com  → CNAME → <TUNNEL_ID>.cfargotunnel.com
+#        seq.glutenfreepy.com  → CNAME → <TUNNEL_ID>.cfargotunnel.com
+#        cdn.glutenfreepy.com  → CNAME → <TUNNEL_ID>.cfargotunnel.com
+#        minio.glutenfreepy.com → CNAME → <TUNNEL_ID>.cfargotunnel.com
+#   7. kubectl apply -f k8s/cloudflare/cloudflared.yaml
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudflare
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflared-config
+  namespace: cloudflare
+data:
+  config.yaml: |
+    tunnel: e03cc35c-99be-4640-b09c-475d60482194
+    credentials-file: /etc/cloudflared/credentials.json
+    ingress:
+      - hostname: glutenfreepy.com
+        service: http://front-ecommerce-gluten-free-svc.gluten-free.svc.cluster.local:80
+      - hostname: api.glutenfreepy.com
+        service: http://api-ecommerce-gluten-free-svc.gluten-free.svc.cluster.local:80
+      - hostname: seq.glutenfreepy.com
+        service: http://seq.infra.svc.cluster.local:80
+      - hostname: cdn.glutenfreepy.com
+        service: http://minio.infra.svc.cluster.local:9000
+      - hostname: minio.glutenfreepy.com
+        service: http://minio.infra.svc.cluster.local:9001
+      - service: http_status:404
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: cloudflare
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudflared
+  template:
+    metadata:
+      labels:
+        app: cloudflared
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared:latest
+          args:
+            - tunnel
+            - --no-autoupdate
+            - --config
+            - /etc/cloudflared/config.yaml
+            - run
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cloudflared/config.yaml
+              subPath: config.yaml
+            - name: credentials
+              mountPath: /etc/cloudflared/credentials.json
+              subPath: credentials.json
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: cloudflared-config
+        - name: credentials
+          secret:
+            secretName: cloudflared-credentials

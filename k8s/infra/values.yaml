@@ -1,0 +1,54 @@
+namespace: infra
+
+storageClass: local-path
+
+postgres:
+  image: postgres:16.10
+  storage: 5Gi
+  database: "DB-Ecommerce-Gluten-Free"
+  username: "postgres"
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "2Gi"
+
+seq:
+  image: datalust/seq:2024.3
+  storage: 5Gi
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+minio:
+  image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+  storage: 10Gi
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+
+ingress:
+  name: infra-ingress
+  className: nginx
+  seqHost: seq.glutenfreepy.com
+  tls: false
+
+certManager:
+  email: ""
+  enabled: false
+
+secrets:
+  name: infra-secrets
+
+configMap:
+  name: infra-config

@@ -1,0 +1,40 @@
+name: Deploy Infra
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'k8s/infra/**'
+
+jobs:
+  deploy-infra:
+    name: Deploy to Production
+    runs-on: [self-hosted, linux, mfmserver]
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Crear namespace
+        run: |
+          kubectl create namespace infra --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Aplicar secrets de infra
+        run: |
+          kubectl create secret generic infra-secrets \
+            --from-literal=DB_PASSWORD='${{ secrets.DB_PASSWORD }}' \
+            --from-literal=SEQ_ADMIN_PASSWORD_HASH='${{ secrets.SEQ_ADMIN_PASSWORD_HASH }}' \
+            --from-literal=MINIO_ACCESS_KEY='${{ secrets.MINIO_ACCESS_KEY }}' \
+            --from-literal=MINIO_SECRET_KEY='${{ secrets.MINIO_SECRET_KEY }}' \
+            --namespace infra \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy infra a K3s
+        run: |
+          helm upgrade --install infra ./k8s/infra \
+            --namespace infra \
+            --create-namespace \
+            --wait \
+            --timeout 5m

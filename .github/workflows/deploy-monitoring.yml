@@ -1,0 +1,22 @@
+name: Deploy Monitoring
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'k8s/monitoring/**'
+
+jobs:
+  deploy-monitoring:
+    name: Deploy to Production
+    runs-on: [self-hosted, linux, mfmserver]
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Aplicar recursos de monitoreo
+        run: |
+          kubectl apply -f k8s/monitoring/
