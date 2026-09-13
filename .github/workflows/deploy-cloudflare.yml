@@ -33,3 +33,10 @@ jobs:
       - name: Deploy cloudflared
         run: |
           kubectl apply -f k8s/cloudflare/cloudflared.yaml
+
+      - name: Reiniciar cloudflared
+        run: |
+          # El ConfigMap se monta con subPath, así que un "kubectl apply" solo
+          # no alcanza para que el pod relea la config: hace falta reiniciarlo.
+          kubectl rollout restart deployment/cloudflared -n cloudflare
+          kubectl rollout status deployment/cloudflared -n cloudflare --timeout=2m
