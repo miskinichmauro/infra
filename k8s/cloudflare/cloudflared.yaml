@@ -16,6 +16,8 @@
 #        seq.glutenfreepy.com  → CNAME → <TUNNEL_ID>.cfargotunnel.com
 #        cdn.glutenfreepy.com  → CNAME → <TUNNEL_ID>.cfargotunnel.com
 #        minio.glutenfreepy.com → CNAME → <TUNNEL_ID>.cfargotunnel.com
+#        boda.mafadii.com      → CNAME → <TUNNEL_ID>.cfargotunnel.com
+#        api.boda.mafadii.com  → CNAME → <TUNNEL_ID>.cfargotunnel.com
 #   7. kubectl apply -f k8s/cloudflare/cloudflared.yaml
 
 apiVersion: v1
@@ -43,6 +45,10 @@ data:
         service: http://minio.infra.svc.cluster.local:9000
       - hostname: minio.glutenfreepy.com
         service: http://minio.infra.svc.cluster.local:9001
+      - hostname: boda.mafadii.com
+        service: http://front-boda-mafadii-svc.boda-mafadii.svc.cluster.local:80
+      - hostname: api.boda.mafadii.com
+        service: http://api-boda-mafadii-svc.boda-mafadii.svc.cluster.local:80
       - service: http_status:404
 ---
 apiVersion: apps/v1
